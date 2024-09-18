@@ -14,22 +14,33 @@ if (!API_TOKEN) {
   )
   process.exit(1)
 }
+console.log('Server starting up...')
+console.log(`Port: ${port}`)
 
 app.use(express.json())
 
 // Middleware to check for bearer token
 const authenticateToken = (req, res, next) => {
+  console.log('Authenticating request...')
   const authHeader = req.headers['authorization']
   const token = authHeader && authHeader.split(' ')[1]
 
-  if (token == null) return res.sendStatus(401)
+  if (token == null) {
+    console.log('Authentication failed: No token provided')
+    return res.sendStatus(401)
+  }
 
-  if (token !== API_TOKEN) return res.sendStatus(403)
+  if (token !== API_TOKEN) {
+    console.log('Authentication failed: Invalid token')
+    return res.sendStatus(403)
+  }
 
+  console.log('Authentication successful')
   next()
 }
 
 app.post('/generate-og', authenticateToken, async (req, res) => {
+  console.log('Received request to generate OG image')
   try {
     const {
       titleBar,
@@ -41,6 +52,9 @@ app.post('/generate-og', authenticateToken, async (req, res) => {
       textDir
     } = req.body
 
+    console.log('Request body:', JSON.stringify(req.body, null, 2))
+
+    console.log('Generating image response...')
     const imageResponse = new ImageResponse(
       {
         type: 'div',
@@ -111,18 +125,41 @@ app.post('/generate-og', authenticateToken, async (req, res) => {
       }
     )
 
+    console.log('Converting image response to array buffer...')
     const arrayBuffer = await imageResponse.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
+
+    console.log('Converting to PNG...')
     const pngBuffer = await sharp(buffer).png().toBuffer()
 
+    console.log('Sending response...')
     res.setHeader('Content-Type', 'image/png')
     res.send(pngBuffer)
+    console.log('Response sent successfully')
   } catch (error) {
     console.error('Error generating image:', error)
-    res.status(500).json({ error: 'Error generating image' })
+    console.error('Stack trace:', error.stack)
+    res
+      .status(500)
+      .json({ error: 'Error generating image', details: error.message })
   }
 })
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`OG Image generator API listening at http://0.0.0.0:${port}`)
+})
+
+// Add an error handler for uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error)
+  console.error('Stack trace:', error.stack)
+  // Optionally, you can choose to exit the process here
+  // process.exit(1)
+})
+
+// Add an error handler for unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason)
+  // Optionally, you can choose to exit the process here
+  // process.exit(1)
 })
