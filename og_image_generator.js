@@ -42,19 +42,13 @@ const authenticateToken = (req, res, next) => {
 app.post('/generate-og', authenticateToken, async (req, res) => {
   console.log('Received request to generate OG image')
   try {
-    const {
-      titleBar,
-      titleText,
-      pageTitle,
-      bgColor,
-      iconUrl,
-      fontFamily,
-      textDir
-    } = req.body
+    const { titleBar, titleText, bgColor, iconUrl, fontFamily, textDir } =
+      req.body
 
     console.log('Request body:', JSON.stringify(req.body, null, 2))
 
     console.log('Generating image response...')
+    const isRTL = textDir === 'RTL'
     const imageResponse = new ImageResponse(
       {
         type: 'div',
@@ -64,56 +58,83 @@ app.post('/generate-og', authenticateToken, async (req, res) => {
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
             backgroundColor: bgColor,
-            fontFamily: fontFamily,
-            direction: textDir === 'RTL' ? 'rtl' : 'ltr'
+            fontFamily: fontFamily
           },
           children: [
             {
-              type: 'img',
+              type: 'div',
               props: {
-                src: iconUrl,
-                width: 100,
-                height: 100
+                style: {
+                  display: 'flex',
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                  alignItems: 'center',
+                  padding: '40px',
+                  flex: 1
+                },
+                children: [
+                  {
+                    type: 'div',
+                    props: {
+                      style: {
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        flex: 1
+                      },
+                      children: [
+                        {
+                          type: 'div',
+                          props: {
+                            style: {
+                              fontSize: 60,
+                              fontWeight: 'bold',
+                              color: 'white',
+                              textAlign: isRTL ? 'right' : 'left',
+                              marginBottom: '20px'
+                            },
+                            children: titleText
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    type: 'img',
+                    props: {
+                      src: iconUrl,
+                      width: 100,
+                      height: 100,
+                      style: {
+                        marginLeft: isRTL ? 0 : '40px',
+                        marginRight: isRTL ? '40px' : 0
+                      }
+                    }
+                  }
+                ]
               }
             },
             {
               type: 'div',
               props: {
                 style: {
-                  fontSize: 40,
-                  fontWeight: 'bold',
-                  color: 'white',
-                  textAlign: 'center'
+                  backgroundColor: 'white',
+                  padding: '20px 40px'
                 },
-                children: titleBar
-              }
-            },
-            {
-              type: 'div',
-              props: {
-                style: {
-                  fontSize: 60,
-                  fontWeight: 'bold',
-                  color: 'white',
-                  textAlign: 'center',
-                  maxWidth: textDir === 'RTL' ? '400px' : '540px',
-                  lineHeight: textDir === 'RTL' ? '95px' : '44px'
-                },
-                children: titleText
-              }
-            },
-            {
-              type: 'div',
-              props: {
-                style: {
-                  fontSize: 30,
-                  color: 'white',
-                  textAlign: 'center'
-                },
-                children: pageTitle
+                children: [
+                  {
+                    type: 'div',
+                    props: {
+                      style: {
+                        fontSize: 30,
+                        fontWeight: 'bold',
+                        color: bgColor,
+                        textAlign: isRTL ? 'right' : 'left'
+                      },
+                      children: titleBar
+                    }
+                  }
+                ]
               }
             }
           ]
