@@ -27,7 +27,7 @@ async function loadGoogleFont(font) {
   const cachedFont = fontCache.get(font)
   if (cachedFont) {
     console.log(`Using cached font: ${font}`)
-    return cachedFont
+    return cachedFont.map((buffer) => Buffer.from(buffer))
   }
 
   console.log(`Fetching font: ${font}`)
@@ -47,10 +47,13 @@ async function loadGoogleFont(font) {
 
   const fontData = await Promise.all(fontPromises)
 
-  // Cache the font data
-  fontCache.set(font, fontData)
+  // Cache the font data as Buffer objects
+  fontCache.set(
+    font,
+    fontData.map((arrayBuffer) => Buffer.from(arrayBuffer))
+  )
 
-  return fontData
+  return fontData.map((arrayBuffer) => Buffer.from(arrayBuffer))
 }
 
 app.use(express.json())
