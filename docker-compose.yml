@@ -1,0 +1,10 @@
+version: '3'
+services:
+  og-image-generator:
+    build: .
+    ports:
+      - "8743:8743"
+    environment:
+      - API_TOKEN=${API_TOKEN}
+      - PORT=8743
+    restart: unless-stopped
