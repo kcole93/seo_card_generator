@@ -1,9 +1,14 @@
 import { ImageResponse } from '@vercel/og'
 import sharp from 'sharp'
 import express from 'express'
+import fetch from 'node-fetch'
+import NodeCache from 'node-cache'
 
 const app = express()
 const port = process.env.PORT || 8743
+
+// Cache font files for 7 days
+const fontCache = new NodeCache({ stdTTL: 604800 })
 
 // Use the API token set in the environment
 const API_TOKEN = process.env.API_TOKEN
@@ -16,6 +21,37 @@ if (!API_TOKEN) {
 }
 console.log('Server starting up...')
 console.log(`Port: ${port}`)
+
+// Function to fetch and load a font, with caching
+async function loadGoogleFont(font) {
+  const cachedFont = fontCache.get(font)
+  if (cachedFont) {
+    console.log(`Using cached font: ${font}`)
+    return cachedFont
+  }
+
+  console.log(`Fetching font: ${font}`)
+  const API = `https://fonts.googleapis.com/css2?family=${font}:wght@400;700&display=swap`
+  const css = await (await fetch(API)).text()
+
+  const fontUrls = css.match(
+    /src: url\((.+)\) format\('(opentype|truetype)'\)/g
+  )
+  if (!fontUrls) throw new Error(`Failed to load font: ${font}`)
+
+  const fontPromises = fontUrls.map(async (fontUrl) => {
+    const url = fontUrl.match(/src: url\((.+)\) format/)[1]
+    const res = await fetch(url)
+    return res.arrayBuffer()
+  })
+
+  const fontData = await Promise.all(fontPromises)
+
+  // Cache the font data
+  fontCache.set(font, fontData)
+
+  return fontData
+}
 
 app.use(express.json())
 
@@ -47,6 +83,10 @@ app.post('/generate-og', authenticateToken, async (req, res) => {
 
     console.log('Request body:', JSON.stringify(req.body, null, 2))
 
+    // Load the specified Google Font (with caching)
+    console.log(`Loading font: ${fontFamily}`)
+    const fonts = await loadGoogleFont(fontFamily)
+
     console.log('Generating image response...')
     const isRTL = textDir === 'RTL'
     const imageResponse = new ImageResponse(
@@ -59,7 +99,7 @@ app.post('/generate-og', authenticateToken, async (req, res) => {
             display: 'flex',
             flexDirection: 'column',
             backgroundColor: bgColor,
-            fontFamily: fontFamily
+            fontFamily: `"${fontFamily}", sans-serif`
           },
           children: [
             {
@@ -80,7 +120,8 @@ app.post('/generate-og', authenticateToken, async (req, res) => {
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'center',
-                        flex: 1
+                        flex: 1,
+                        alignItems: isRTL ? 'flex-end' : 'flex-start'
                       },
                       children: [
                         {
@@ -91,7 +132,8 @@ app.post('/generate-og', authenticateToken, async (req, res) => {
                               fontWeight: 'bold',
                               color: 'white',
                               textAlign: isRTL ? 'right' : 'left',
-                              marginBottom: '20px'
+                              marginBottom: '20px',
+                              maxWidth: '80%'
                             },
                             children: titleText
                           }
@@ -103,11 +145,11 @@ app.post('/generate-og', authenticateToken, async (req, res) => {
                     type: 'img',
                     props: {
                       src: iconUrl,
-                      width: 100,
-                      height: 100,
+                      width: 180,
+                      height: 180,
                       style: {
-                        marginLeft: isRTL ? 0 : '40px',
-                        marginRight: isRTL ? '40px' : 0
+                        marginLeft: isRTL ? '80px' : 0,
+                        marginRight: isRTL ? 0 : '80px'
                       }
                     }
                   }
@@ -119,7 +161,11 @@ app.post('/generate-og', authenticateToken, async (req, res) => {
               props: {
                 style: {
                   backgroundColor: 'white',
-                  padding: '20px 40px'
+                  padding: '20px 40px',
+                  display: 'flex',
+                  justifyContent: isRTL ? 'flex-end' : 'flex-start',
+                  alignItems: 'center',
+                  minHeight: '80px' // Ensure enough height for two lines
                 },
                 children: [
                   {
@@ -128,8 +174,11 @@ app.post('/generate-og', authenticateToken, async (req, res) => {
                       style: {
                         fontSize: 30,
                         fontWeight: 'bold',
-                        color: bgColor,
-                        textAlign: isRTL ? 'right' : 'left'
+                        textTransform: 'uppercase',
+                        color: '#10415A',
+                        textAlign: isRTL ? 'right' : 'left',
+                        maxWidth: '400px', // 1/3 of 1200px
+                        lineHeight: '1.2' // Adjust line height for better readability
                       },
                       children: titleBar
                     }
@@ -142,7 +191,21 @@ app.post('/generate-og', authenticateToken, async (req, res) => {
       },
       {
         width: 1200,
-        height: 628
+        height: 628,
+        fonts: [
+          {
+            name: fontFamily,
+            data: fonts[0],
+            weight: 400,
+            style: 'normal'
+          },
+          {
+            name: fontFamily,
+            data: fonts[1],
+            weight: 700,
+            style: 'normal'
+          }
+        ]
       }
     )
 
@@ -170,7 +233,7 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`OG Image generator API listening at http://0.0.0.0:${port}`)
 })
 
-// Add an error handler for uncaught exceptions
+// Error handler for uncaught exceptions
 process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error)
   console.error('Stack trace:', error.stack)
@@ -178,7 +241,7 @@ process.on('uncaughtException', (error) => {
   // process.exit(1)
 })
 
-// Add an error handler for unhandled promise rejections
+// Error handler for unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason)
   // Optionally, you can choose to exit the process here
