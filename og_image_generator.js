@@ -146,7 +146,7 @@ async function generateImage(
 
   const titleBarX = isRTL ? width - 40 : 40
   const titleBarY = height - titleBarHeight + 20
-  const titleBarWidth = 400
+  const titleBarWidth = isRTL ? 250 : 400 // Set shorter line width for RTL scripts
 
   ctx.textAlign = isRTL ? 'right' : 'left'
   const lineHeight = fontFamily === 'Noto Nastaliq Urdu' ? 70 : isRTL ? 50 : 35 // Taller line height for RTL script, extra tall for Urdu
