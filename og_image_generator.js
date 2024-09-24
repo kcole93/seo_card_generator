@@ -99,7 +99,8 @@ async function generateImage(
   bgColor,
   iconUrl,
   fontFamily,
-  textDir
+  textDir,
+  language
 ) {
   console.log(`Starting image generation with font: ${fontFamily}`)
   // Load and register font before creating canvas
@@ -135,53 +136,86 @@ async function generateImage(
   ctx.textAlign = isRTL ? 'right' : 'left'
   wrapText(ctx, titleText, titleX, titleY, titleWidth, 70, isRTL)
 
-  // Draw title bar
-  const titleBarHeight = fontFamily === 'Noto Nastaliq Urdu' ? 180 : 140 // Extra tall for Noto Nastaliq Urdu
-  ctx.fillStyle = 'white'
-  ctx.fillRect(0, height - titleBarHeight, width, titleBarHeight)
+  // Dynamically set titleBarWidth based on language
+  let titleBarWidth
+  switch (language) {
+    case 'Urdu':
+      titleBarWidth = 250
+      break
+    case 'Farsi':
+    case 'French':
+    case 'Somali':
+    case 'Turkish':
+    case 'English':
+    case 'Russian':
+      titleBarWidth = 400
+      break
+    case 'Arabic':
+    case 'Sorani':
+    case 'Pashto':
+      titleBarWidth = 300
+      break
+    default:
+      titleBarWidth = 300
+  }
 
+  // Set title bar text properties
   ctx.fillStyle = '#10415A'
   ctx.font = `bold 30px "${fontFamily}"`
   ctx.fontWeight = 700
-
-  const titleBarX = isRTL ? width - 40 : 40
-  const titleBarY = height - titleBarHeight + 20
-  const titleBarWidth = isRTL ? 250 : 400 // Set shorter line width for RTL scripts
-
   ctx.textAlign = isRTL ? 'right' : 'left'
-  const lineHeight = fontFamily === 'Noto Nastaliq Urdu' ? 70 : isRTL ? 50 : 35 // Taller line height for RTL script, extra tall for Urdu
-  wrapText(
+
+  // Calculate wrapped text and determine title bar height
+  const lineHeight = fontFamily === 'Noto Nastaliq Urdu' ? 70 : isRTL ? 50 : 35
+  const wrappedText = wrapTextAndReturnLines(
     ctx,
     titleBar.toUpperCase(),
-    titleBarX,
-    titleBarY,
-    titleBarWidth,
-    lineHeight
+    titleBarWidth
   )
+  const titleBarHeight = Math.max(wrappedText.length * lineHeight + 40, 140) // Minimum height of 140
+
+  // Draw title bar
+  ctx.fillStyle = 'white'
+  ctx.fillRect(0, height - titleBarHeight, width, titleBarHeight)
+
+  // Draw title bar text
+  const titleBarX = isRTL ? width - 40 : 40
+  const titleBarY = height - titleBarHeight + 20
+
+  wrappedText.forEach((line, index) => {
+    ctx.fillStyle = '#10415A'
+    ctx.fillText(line, titleBarX, titleBarY + index * lineHeight)
+  })
 
   return canvas.toBuffer('image/png')
 }
 
-// Helper function to wrap text
-function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+// Helper function to wrap text and return lines
+function wrapTextAndReturnLines(ctx, text, maxWidth) {
   const words = text.split(' ')
-  let line = ''
   let lines = []
+  let currentLine = ''
 
-  for (let n = 0; n < words.length; n++) {
-    const testLine = line + words[n] + ' '
+  for (let i = 0; i < words.length; i++) {
+    const testLine = currentLine + (currentLine ? ' ' : '') + words[i]
     const metrics = ctx.measureText(testLine)
     const testWidth = metrics.width
 
-    if (testWidth > maxWidth && n > 0) {
-      lines.push(line.trim())
-      line = words[n] + ' '
+    if (testWidth > maxWidth && i > 0) {
+      lines.push(currentLine)
+      currentLine = words[i]
     } else {
-      line = testLine
+      currentLine = testLine
     }
   }
-  lines.push(line.trim())
+  lines.push(currentLine)
 
+  return lines
+}
+
+// Helper function to wrap text
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  const lines = wrapTextAndReturnLines(ctx, text, maxWidth)
   lines.forEach((line, index) => {
     ctx.fillText(line, x, y + index * lineHeight)
   })
@@ -190,11 +224,25 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
 app.post('/generate-og', authenticateToken, async (req, res) => {
   console.log('Received request to generate OG image')
   try {
-    const { titleBar, titleText, bgColor, iconUrl, fontFamily, textDir } =
-      req.body
+    const {
+      titleBar,
+      titleText,
+      bgColor,
+      iconUrl,
+      fontFamily,
+      textDir,
+      language
+    } = req.body
 
     // Input validation
-    if (!titleBar || !titleText || !bgColor || !iconUrl || !fontFamily) {
+    if (
+      !titleBar ||
+      !titleText ||
+      !bgColor ||
+      !iconUrl ||
+      !fontFamily ||
+      !language
+    ) {
       return res.status(400).json({ error: 'Missing required parameters' })
     }
 
@@ -215,7 +263,8 @@ app.post('/generate-og', authenticateToken, async (req, res) => {
       bgColor,
       iconUrl,
       fontFamily,
-      textDir
+      textDir,
+      language
     )
 
     console.log('Sending response...')
