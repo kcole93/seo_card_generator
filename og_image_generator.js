@@ -140,7 +140,7 @@ async function generateImage(
   let titleBarWidth
   switch (language) {
     case 'Urdu':
-      titleBarWidth = 250
+      titleBarWidth = 310
       break
     case 'Farsi':
     case 'French':
