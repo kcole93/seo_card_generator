@@ -159,6 +159,42 @@ async function generateImage(
       titleBarWidth = 300
   }
 
+  let locale
+  switch (language) {
+    case 'Turkish':
+      locale = 'tr-TR'
+      break
+    case 'Urdu':
+      locale = 'ur-PK'
+      break
+    case 'Farsi':
+      locale = 'fa-IR'
+      break
+    case 'Somali':
+      locale = 'so-SO'
+      break
+    case 'English':
+      locale = 'en-US'
+      break
+    case 'Russian':
+      locale = 'ru-RU'
+      break
+    case 'Arabic':
+      locale = 'ar-SA'
+      break
+    case 'Sorani':
+      locale = 'ckb-IQ'
+      break
+    case 'Pashto':
+      locale = 'ps-AF'
+      break
+    case 'French':
+      locale = 'fr-FR'
+      break
+    default:
+      locale = 'en-US'
+  }
+
   // Set title bar text properties
   ctx.fillStyle = '#10415A'
   ctx.font = `bold 30px "${fontFamily}"`
@@ -169,7 +205,7 @@ async function generateImage(
   const lineHeight = fontFamily === 'Noto Nastaliq Urdu' ? 70 : isRTL ? 50 : 35
   const wrappedText = wrapTextAndReturnLines(
     ctx,
-    titleBar.toUpperCase(),
+    titleBar.toLocaleUpperCase(locale),
     titleBarWidth
   )
   const titleBarHeight = Math.max(wrappedText.length * lineHeight + 40, 140) // Minimum height of 140
